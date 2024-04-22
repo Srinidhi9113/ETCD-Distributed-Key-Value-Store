@@ -1,27 +1,51 @@
 #! /usr/bin/bash
 
-if ! command -v etcd &> /dev/null; then
-    ETCD_VER=v3.5.13
-    GOOGLE_URL=https://storage.googleapis.com/etcd
-    GITHUB_URL=https://github.com/etcd-io/etcd/releases/download
-    DOWNLOAD_URL=${GOOGLE_URL}
-
-    rm -f /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
-    rm -rf /tmp/etcd-download-test && mkdir -p /tmp/etcd-download-test
-
-    curl -L ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
-    tar xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz -C /tmp/etcd-download-test --strip-components=1
-    rm -f /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
-
-    /tmp/etcd-download-test/etcd --version
-    /tmp/etcd-download-test/etcdctl version
-    /tmp/etcd-download-test/etcdutl version
-
-    mv /tmp/etcd-download-test/etcd /usr/local/bin/
-    mv /tmp/etcd-download-test/etcdctl /usr/local/bin/
-    mv /tmp/etcd-download-test/etcdutl /usr/local/bin/
+if [ "$#" -lt 3 ]; then
+    echo "Usage: $0 <number_of_nodes> <peer_ip_ports> <client_ip_ports>"
+    exit 1
 fi
 
-echo $(etcd --version)
-echo $(etcdctl version)
-echo $(etcdutl version)
+NUM_NODES=$1
+PEER_IP_PORTS=($2)
+CLIENT_IP_PORTS=($3)
+DATA_DIR="$PWD/data"
+
+if [ "${#PEER_IP_PORTS[@]}" -ne "$NUM_NODES" ] || [ "${#CLIENT_IP_PORTS[@]}" -ne "$NUM_NODES" ]; then
+    echo "Number of peer and client IP ports should match the number of nodes."
+    exit 1
+fi
+
+mkdir -p "$DATA_DIR"
+
+tmux new-session -d -s etcd_session
+
+for ((i=0; i<NUM_NODES; i++)); do
+    tmux split-window -v -p $((100 - 100/(NUM_NODES-i)))
+done
+
+INITIAL_CLUSTER=""
+STATUS_INFO=""
+for ((j=0; j<NUM_NODES; j++)); do
+    INITIAL_CLUSTER+="node$j=http://localhost:${PEER_IP_PORTS[$j]},"
+    STATUS_INFO+="localhost:${CLIENT_IP_PORTS[$j]},"
+done
+INITIAL_CLUSTER=${INITIAL_CLUSTER%,}
+STATUS_INFO=${STATUS_INFO%,}
+
+for ((i=0; i<NUM_NODES; i++)); do
+    tmux select-pane -t etcd_session:0.$i
+
+    NODE_PEER_PORT=${PEER_IP_PORTS[$i]}
+    NODE_CLIENT_PORT=${CLIENT_IP_PORTS[$i]}
+
+    tmux send-keys "etcd --name node$i --initial-advertise-peer-urls http://localhost:$NODE_PEER_PORT \
+                    --listen-peer-urls http://localhost:$NODE_PEER_PORT \
+                    --advertise-client-urls http://localhost:$NODE_CLIENT_PORT \
+                    --listen-client-urls http://localhost:$NODE_CLIENT_PORT \
+                    --initial-cluster $INITIAL_CLUSTER \
+                    --initial-cluster-token etcd-cluster \
+                    --initial-cluster-state new \
+                    --data-dir $DATA_DIR/node$i" C-m
+done
+
+etcdctl -w table --endpoints=$STATUS_INFO endpoint status

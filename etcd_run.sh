@@ -19,10 +19,8 @@ mkdir -p "$DATA_DIR"
 
 tmux new-session -d -s etcd_session
 
-NUM_PANES=$((NUM_NODES - 1))
-
-for ((i=0; i<NUM_PANES; i++)); do
-    tmux split-window -h -l $((100/NUM_NODES))%
+for ((i=0; i<NUM_NODES; i++)); do
+    tmux split-window -v -p $((100 - 100/(NUM_NODES-i)))
 done
 
 INITIAL_CLUSTER=""
@@ -49,9 +47,5 @@ for ((i=0; i<NUM_NODES; i++)); do
                     --initial-cluster-state new \
                     --data-dir $DATA_DIR/node$i" C-m
 done
-
-tmux attach-session -t etcd_session
-
-tmux detach -s etcd_session
 
 etcdctl -w table --endpoints=$STATUS_INFO endpoint status

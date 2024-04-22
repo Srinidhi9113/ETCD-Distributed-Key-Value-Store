@@ -32,11 +32,11 @@ This project aims to create a multi-node ETCD server for a reliable key-value st
    ```
 4. Run the client GUI interface with the following command:
    ```
-   streamlit run etcd_client.py --client-port <Client_port>
+   streamlit run etcd_client.py -- --client-port <Client_port>
    ```
    Example:
    ```
-   streamlit run etcd_client.py --client-port 2383
+   streamlit run etcd_client.py -- --client-port 2383
    ```
 
 ## Running the Test File

@@ -54,6 +54,8 @@ This project aims to create a multi-node ETCD server for a reliable key-value st
 - Ensure all necessary dependencies are installed before running the scripts.
 - Modify configuration files as needed for your specific setup.
 - Replace `<Number_of_nodes>`, `<List_of_peer_ports>`, and `<List_of_client_ports>` with actual values when running the scripts.
+- To navigate into the tmux session, use the command `tmux attach-session -t etcd_session`.
+- *Important* : Remove the data directory inside the project folder each time you run the project with different number of nodes.
 
 ## References
 - [ETCD Release](https://github.com/etcd-io/etcd/releases)
